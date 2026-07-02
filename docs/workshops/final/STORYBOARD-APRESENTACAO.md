@@ -1,20 +1,20 @@
 # Storyboard da Apresentação — A Grande Final (F5/F6)
 
-> **O que é este arquivo:** um **prompt pronto para colar no Claude for PowerPoint**. Ele gera o deck da Grande Final (`.pptx`) no **mesmo DNA visual do deck real das Quartas** ("Quartas de final - Apresentação.pptx"): **11 slides**, tema escuro, uma tecnologia por slide, selos "TECNOLOGIA N DE 4", footer fixo.
+> **O que é este arquivo:** um **prompt pronto para colar no Claude for PowerPoint**. Ele gera o deck da Grande Final (`.pptx`) no **mesmo DNA visual do deck real das Quartas** ("Quartas de final - Apresentação.pptx"): **10 slides**, tema escuro, uma tecnologia por slide, selos "TECNOLOGIA N DE 4", footer fixo.
 >
 > **Como usar:**
 > 1. Abra o Claude for PowerPoint (ou Claude com a skill de PowerPoint).
 > 2. **Cole todo o bloco abaixo** (da linha `═══ INÍCIO DO PROMPT ═══` até `═══ FIM DO PROMPT ═══`). O prompt é **auto-contido** — todo o texto de cada slide já está escrito por extenso; não é preciso dar acesso ao repositório.
 > 3. Gere o `.pptx`. Ele **não** entra no git versionado (mesmo padrão de Oitavas/Quartas: o repo guarda o storyboard + o deck reveal `slides.md`; o binário é exportado à parte).
 >
-> **Fidelidade técnica (Art. IV — No Invention):** todo número, nome de tool, nó e componente já está fixado no prompt e bate com o código/guia reais: **7 tools read-only**, **5 nós**, notificação pós-compra **inline** na Function Consumer (**n8n removido** — aparece só como "o que removemos"), **`gemini-2.5-flash`**, chave Gemini **só no proxy server-side**, `X-Gateway-Key` fechando o bypass ao McpServer. Não altere esses números ao gerar o deck.
+> **Fidelidade técnica (Art. IV — No Invention):** todo número, nome de tool, nó e componente já está fixado no prompt e bate com o código/guia reais: **7 tools read-only**, **5 nós**, notificação pós-compra **inline** na Function Consumer, **`gemini-2.5-flash`**, chave Gemini **só no proxy server-side**, `X-Gateway-Key` fechando o bypass ao McpServer. Não altere esses números ao gerar o deck. **O aluno da Final nunca usou n8n/orquestração externa/PostgreSQL — NÃO cite nenhum deles em slide algum.**
 
 ---
 
 ```
 ═══ INÍCIO DO PROMPT (cole tudo a partir daqui no Claude for PowerPoint) ═══
 
-Gere uma apresentação PowerPoint (.pptx) de EXATAMENTE 11 SLIDES para o encerramento
+Gere uma apresentação PowerPoint (.pptx) de EXATAMENTE 10 SLIDES para o encerramento
 de um workshop técnico ("A Grande Final" da "Copa do Mundo Azure 2026"). Siga com
 precisão o layout e o DNA descritos abaixo — este deck é o gêmeo, na fase seguinte,
 de um deck já existente das "Quartas de Final".
@@ -34,7 +34,7 @@ DIRETRIZES VISUAIS GLOBAIS (valem para TODOS os slides)
    screenshots. Sem blocos de código longos (o código vive no runbook do aluno).
 • UMA tecnologia por slide. Densidade moderada: título forte, um diagrama, quatro
    recursos, uma caixa "▸ NESTA ETAPA". Frases curtas.
-• Slides de CONCEITO-CHAVE (3, 8, 9): destaque visual — uma frase de efeito grande,
+• Slides de CONCEITO-CHAVE (3, 8): destaque visual — uma frase de efeito grande,
    entre aspas, como âncora do slide.
 
 ════════════════════════════════════════════════════════════════════════
@@ -200,38 +200,12 @@ SLIDE 8 — CONCEITO-CHAVE · Identidade unificada: modernizar sem destruir
 • FRASE DE EFEITO (grande, entre aspas):
    "O login novo não apaga o usuário antigo — ele o ADOTA."
 • Moldura (linha pequena): é o gêmeo, na Final, do "modernizar sem destruir" das Quartas.
-   Este slide é ADITIVO (adiciona o vínculo, nada é apagado) — contraste explícito com o
-   Slide 9 (n8n), que é SUBTRATIVO. Story 3.5 / ADE-007 (fence CiamOnly, bcrypt+entra_oid).
+   Este slide ADICIONA o vínculo — nada é apagado. Story 3.5 / ADE-007 (fence CiamOnly,
+   bcrypt+entra_oid).
 • Acento teal/roxo. Footer padrão.
 
 ════════════════════════════════════════════════════════════════════════
-SLIDE 9 — CONCEITO-CHAVE · Onde foi o n8n? (simplificar > substituir)
-════════════════════════════════════════════════════════════════════════
-• Rótulo: CONCEITO-CHAVE
-• Título: Removemos um componente — NÃO o substituímos
-• Corpo: no desenho original, um 6º nó faria a orquestração da notificação pós-compra.
-   Ele NÃO existe mais: a notificação virou uma etapa INLINE dentro da Function Consumer
-   (o nó 3).
-• Mini-tabela (antes → agora):
-   | | Antes | Agora (Final) |
-   | Pós-compra | orquestração externa (Container App + Postgres) | inline na Function Consumer |
-   | Nós no visualizer | 6 | 5 |
-   | Rastreabilidade | trace correlacionado | trace correlacionado (igual) |
-• FRASE DE EFEITO (grande, entre aspas):
-   "É a Function que orquestra o pós-compra."
-• Trade-off honesto (linha pequena): a notificação fica INVISÍVEL na animação (dobrada
-   no nó 3); a observabilidade dela vive no log correlacionado. Ganhamos simplicidade —
-   menos peças, menos falhas, menos custo. Cinco nós, não seis.
-• Moldura de contraste (destaque): DUAS FACES de "evoluir sem quebrar" — o Slide 8
-   (identidade) é ADITIVO (adiciona o vínculo CIAM, nada é apagado); este slide é
-   SUBTRATIVO (remove uma peça inteira, a função continua inline). Às vezes soma, às
-   vezes some.
-• ⚠ Regra de linguagem para quem gera/apresenta: NUNCA escrever "automação no-code" nem
-   citar orquestração externa como algo PRESENTE — na Final ela não existe.
-• Acento teal/roxo. Footer padrão.
-
-════════════════════════════════════════════════════════════════════════
-SLIDE 10 — ARQUITETURA · A foto completa (tudo que você construiu)
+SLIDE 9 — ARQUITETURA · A foto completa (tudo que você construiu)
 ════════════════════════════════════════════════════════════════════════
 • Rótulo: ARQUITETURA
 • Título: A foto completa — tudo que você construiu (Oitavas → Quartas → Final)
@@ -274,18 +248,17 @@ SLIDE 10 — ARQUITETURA · A foto completa (tudo que você construiu)
    ④ F6 — a VISÃO (traces → SignalR → /flow acende os 5 nós).
    ⑤ Blindar — segredos no cofre (MI+KV) + observabilidade correlacionada.
 • Linha-resumo (destaque): um sistema Azure-native COMPLETO, construído do ZERO, camada
-   por camada — ZERO n8n, ZERO PostgreSQL, segredos NO COFRE — e retro-compatível
-   (nada das fases anteriores quebrou).
+   por camada — segredos NO COFRE — e retro-compatível (nada das fases anteriores quebrou).
 • Nota (rodapé pequeno): o draw.io de topologia completa é a Story 4.6 (ainda não feita);
    por ora, este slide é a foto.
 • Acento: teal (F5) + roxo (F6) + vermelho só no realce de segurança. Footer padrão.
 
 ════════════════════════════════════════════════════════════════════════
-SLIDE 11 — ENCERRAMENTO DA JORNADA
+SLIDE 10 — ENCERRAMENTO DA JORNADA
 ════════════════════════════════════════════════════════════════════════
 • Rótulo: ENCERRAMENTO DA JORNADA
 • Título: Você concluiu a Copa do Mundo Azure
-• Cinco bullets (o que foi construído — cada um com um ícone/acento):
+• Quatro bullets (o que foi construído — cada um com um ícone/acento):
    • VOZ (F5) — um chatbot MCP + RAG que consulta o estado real da Copa: 7 sentidos,
       zero escrita, segurança por construção.
    • VISÃO (F6) — observabilidade ao vivo: uma compra animada em 5 nós por correlationId
@@ -294,9 +267,7 @@ SLIDE 11 — ENCERRAMENTO DA JORNADA
       os segredos vão para o Key Vault, lidos por Managed Identity, não em claro; a chave
       do Gemini nunca vai no bundle.
    • UNIFICAR — base v1 (bcrypt) ↔ CIAM na mesma linha users; o JIT /api/v2/me torna o
-      cliente nato-CIAM cidadão de primeira classe (ADITIVO — nada é apagado).
-   • SIMPLIFICAR — menos peças (notificação inline, n8n removido), mesma função,
-      retro-compatível com as fases anteriores (SUBTRATIVO).
+      cliente nato-CIAM cidadão de primeira classe.
 • Fala de fechamento (uma frase, destaque): "Você começou com uma compra de ingresso e
    terminou com um sistema Azure-native completo — construído do zero, com as próprias
    mãos. Isso é uma Grande Final."
@@ -305,16 +276,18 @@ SLIDE 11 — ENCERRAMENTO DA JORNADA
 ════════════════════════════════════════════════════════════════════════
 LEMBRETES FINAIS PARA A GERAÇÃO
 ════════════════════════════════════════════════════════════════════════
-• São 11 slides — nem mais, nem menos.
+• São 10 slides — nem mais, nem menos.
 • Slides 4, 5, 6, 7 são as tecnologias, cada um com o selo "TECNOLOGIA N DE 4",
    diagrama "COMO FUNCIONA", 4 recursos e a caixa "▸ NESTA ETAPA".
-• Slides 3, 8, 9 são os CONCEITOS-CHAVE — dê o maior destaque visual às frases de efeito.
-• Slide 10 é a arquitetura (diagrama + legenda numerada); slide 11 é o encerramento
+• Slides 3 e 8 são os CONCEITOS-CHAVE — dê o maior destaque visual às frases de efeito.
+• Slide 9 é a arquitetura (diagrama + legenda numerada); slide 10 é o encerramento
    celebrativo da jornada INTEIRA (não só da fase).
 • NÃO invente tools, nós ou números: são 7 tools read-only, 5 nós, notificação inline,
-   n8n removido, gemini-2.5-flash, chave Gemini no proxy, X-Gateway-Key. E, na identidade
+   gemini-2.5-flash, chave Gemini no proxy, X-Gateway-Key. E, na identidade
    (Slide 8): bcrypt + entra_oid na MESMA linha users, JIT GET /api/v2/me
    (resolve-or-provision), fence CiamOnly — não invente rotas/claims além destes.
+• NÃO cite n8n, "automação no-code", orquestração externa nem PostgreSQL em NENHUM slide —
+   o aluno da Final nunca os viu. Os 5 nós são 5 (não explique "por que não 6").
 
 ═══ FIM DO PROMPT ═══
 ```
@@ -328,23 +301,23 @@ LEMBRETES FINAIS PARA A GERAÇÃO
   4× tecnologia → 2× conceito-chave de aprofundamento → arquitetura → encerramento.
 - **Mapeamento Quartas → Final (por posição de slide):**
 
-  | # | Quartas (real) | Final (este prompt) |
-  |---|---|---|
-  | 1 | Capa "Identidade dois mundos" | Capa "Voz & Visão — a Copa que te responde" |
-  | 2 | Stack (Gateway/CIAM/workforce/Container Apps/SQL) | Stack (MCP/RAG/Gemini/Managed Identity/SignalR) |
-  | 3 | Conceito central: desambiguação de identidade | Conceito central: **regra de ouro por construção** |
-  | 4 | Tec 1: Gateway YARP | Tec 1: **MCP** |
-  | 5 | Tec 2: Entra External ID | Tec 2: **RAG por tool-use** |
-  | 6 | Tec 3: Entra ID workforce | Tec 3: **Managed Identity** |
-  | 7 | Tec 4: Azure Container Apps | Tec 4: **Azure SignalR / observabilidade** |
-  | 8 | Conceito: "só muda a string da authority" | Conceito: **Identidade unificada — "modernizar sem destruir" (ADITIVO)** — gêmeo do slide de identidade das Quartas |
-  | 9 | Conceito: "modernizar sem destruir" | Conceito: **"Onde foi o n8n?" (simplificar > substituir, SUBTRATIVO)** |
-  | 10 | Arquitetura "a foto completa da F2" | Arquitetura "a foto completa — tudo que você construiu" (jornada INTEIRA Oitavas→Quartas→Final, não só a Final) |
-  | 11 | Encerramento "você concluiu as Quartas" | Encerramento "você concluiu a Copa do Mundo Azure" |
+  | Quartas # | Quartas (real) | Final # | Final (este prompt) |
+  |---|---|---|---|
+  | 1 | Capa "Identidade dois mundos" | 1 | Capa "Voz & Visão — a Copa que te responde" |
+  | 2 | Stack (Gateway/CIAM/workforce/Container Apps/SQL) | 2 | Stack (MCP/RAG/Gemini/Managed Identity/SignalR) |
+  | 3 | Conceito central: desambiguação de identidade | 3 | Conceito central: **regra de ouro por construção** |
+  | 4 | Tec 1: Gateway YARP | 4 | Tec 1: **MCP** |
+  | 5 | Tec 2: Entra External ID | 5 | Tec 2: **RAG por tool-use** |
+  | 6 | Tec 3: Entra ID workforce | 6 | Tec 3: **Managed Identity** |
+  | 7 | Tec 4: Azure Container Apps | 7 | Tec 4: **Azure SignalR / observabilidade** |
+  | 8 | Conceito: "só muda a string da authority" | 8 | Conceito: **Identidade unificada — "modernizar sem destruir"** — gêmeo do slide de identidade das Quartas |
+  | 9 | Conceito: "modernizar sem destruir" | — | *(sem equivalente — o conceito-chave "Onde foi o n8n?" foi REMOVIDO do deck: o aluno da Final não usa n8n)* |
+  | 10 | Arquitetura "a foto completa da F2" | 9 | Arquitetura "a foto completa — tudo que você construiu" (jornada INTEIRA Oitavas→Quartas→Final, não só a Final) |
+  | 11 | Encerramento "você concluiu as Quartas" | 10 | Encerramento "você concluiu a Copa do Mundo Azure" |
 
-- **Deck reveal paralelo:** `slides.md` (reveal.js) é a versão navegável e mais granular do mesmo
-  conteúdo; as `SPEAKER-NOTES.md` seguem o `slides.md` slide a slide e referenciam o número do
-  slide equivalente deste `.pptx` (`≈ Storyboard SN`).
+- **Deck reveal paralelo:** `slides.md` (reveal.js) é a versão navegável do mesmo conteúdo (também
+  já SEM o slide do n8n); as `SPEAKER-NOTES.md` seguem a numeração deste `.pptx` (10 slides) **1:1**
+  — uma seção por slide (`## Slide 1` … `## Slide 10`).
 - **Rastreabilidade (Art. IV):** fontes — ADE-008 (re-arquitetura sem n8n), ADE-009 (X-Gateway-Key),
   **ADE-010 (MI + Key Vault sobre os recursos existentes + observabilidade nível-produção)**,
   **Story 3.5 + ADE-007 (identidade unificada base v1 ↔ CIAM: bcrypt+entra_oid, JIT `/api/v2/me`,

@@ -168,7 +168,7 @@ Peça ao chatbot uma **ação**:
 
 # "O login novo não apaga o usuário antigo —<br/>ele o **adota**."
 
-<small>É o gêmeo, na Final, do "modernizar sem destruir" das Quartas. **ADITIVO** — bcrypt + `entra_oid` na mesma linha, nada é apagado (contraste com o slide do n8n, que é **subtrativo**). Story 3.5 / ADE-007.</small>
+<small>É o gêmeo, na Final, do "modernizar sem destruir" das Quartas: bcrypt + `entra_oid` na mesma linha, nada é apagado. Story 3.5 / ADE-007.</small>
 
 ---
 
@@ -205,34 +205,6 @@ Peça ao chatbot uma **ação**:
 
 ---
 
-## CONCEITO-CHAVE · Onde foi o n8n?
-
-- No desenho original, um **6º nó** faria a orquestração da notificação pós-compra.
-- Ele **não existe mais**. A notificação virou uma etapa **inline** dentro da **Function Consumer** (o nó 3).
-
-# "É a **Function** que<br/>orquestra o pós-compra."
-
-<small>Não substituímos o orquestrador por outro — **removemos**. Menos peças, menos falhas, menos custo.</small>
-
----
-
-## A lição: simplificar &gt; substituir
-
-| | Antes | Agora (Final) |
-|---|---|---|
-| Pós-compra | orquestração externa (Container App + Postgres) | **inline** na Function Consumer |
-| Peças | +2 recursos, +1 pin de imagem | **0** — some do stack |
-| Nós no visualizer | 6 | **5** |
-| Rastreabilidade | trace correlacionado | **trace correlacionado (igual)** |
-
-> Trade-off consciente: a notificação fica **invisível** na animação (dobrada no nó 3). Ganhamos simplicidade; a observabilidade vive no **log correlacionado**.
-
-> **Duas faces de "evoluir sem quebrar":** a **identidade** (slide anterior) é **ADITIVA** — *adiciona* o vínculo CIAM, nada é apagado; a **re-arquitetura** aqui é **SUBTRATIVA** — *remove* uma peça inteira e a função continua inline. Modernizar destrua o mínimo: às vezes some, às vezes soma.
-
-<small>Remover um componente em vez de trocá-lo é uma decisão de arquitetura — e a lição de encerramento do Living Lab.</small>
-
----
-
 ## ARQUITETURA · A foto completa — tudo que você construiu
 
 ```
@@ -255,19 +227,18 @@ TRANSVERSAL · Observabilidade: App Insights + Log Analytics (traces por correla
 - **Borda (nó 0):** o **Gateway YARP** é o guardião único — tudo passa por ele.
 - **Serviços:** compra async **5 nós** (F1) · voz **McpServer** (F5) · visão **FlowEvents/SignalR** (F6) · unificação **`/api/v2/me`** (3.5).
 
-<small>Um sistema **Azure-native completo**, do zero, retro-compatível — **zero n8n**, **zero PostgreSQL**, segredos **no cofre**. (O draw.io de topologia completa é a Story 4.6, ainda não feita.)</small>
+<small>Um sistema **Azure-native completo**, do zero, retro-compatível, com segredos **no cofre**. (O draw.io de topologia completa é a Story 4.6, ainda não feita.)</small>
 
 ---
 
-## As 5 missões da Final (retrospectiva)
+## As 4 missões da Final (retrospectiva)
 
 | Missão | O que você provou |
 |---|---|
 | **Voz** (F5) | uma IA consulta dados reais **com segurança** — 7 sentidos, zero escrita |
 | **Visão** (F6) | observabilidade distribuída: uma compra animada em **5 nós** por `correlationId` |
 | **Blindar** (hardening) | gateway guardião único (`X-Gateway-Key` fecha o bypass); **segredos no Key Vault** (via Managed Identity), não em claro; chave Gemini nunca no bundle |
-| **Unificar** (identidade) | base v1 (bcrypt) ↔ CIAM na mesma linha `users`; JIT `/api/v2/me` torna o cliente nato-CIAM **cidadão de primeira classe** — **aditivo** |
-| **Simplificar** (re-arquitetura) | **menos peças** (notificação inline), mesma função — retro-compat — **subtrativo** |
+| **Unificar** (identidade) | base v1 (bcrypt) ↔ CIAM na mesma linha `users`; JIT `/api/v2/me` torna o cliente nato-CIAM **cidadão de primeira classe** |
 
 ---
 
@@ -283,7 +254,7 @@ Terminou com um sistema **Azure-native** completo:
 
 # Isso é uma **Grande Final**. 🏆
 
-<small>Guardião único · segurança por construção · observabilidade correlacionada · simplicidade deliberada. É o que se leva para qualquer sistema em produção.</small>
+<small>Guardião único · segurança por construção · observabilidade correlacionada · identidade unificada. É o que se leva para qualquer sistema em produção.</small>
 
 ---
 
