@@ -1,0 +1,249 @@
+diff --git a/Lovable/World Cup Tickets Hub/src/lib/llm/claude.ts b/Lovable/World Cup Tickets Hub/src/lib/llm/claude.ts
+new file mode 100644
+index 0000000..ff1444f
+--- /dev/null
++++ b/Lovable/World Cup Tickets Hub/src/lib/llm/claude.ts	
+@@ -0,0 +1,99 @@
++// =============================================================================
++// Story 2.5 / F5 — Adapter Claude (Anthropic Messages API, AC-10).
++//
++// Endpoint/modelo pinados por ADE-002 Inv 3 (anti-hallucination AC-15):
++//   Base oficial: https://api.anthropic.com/v1
++//   Method:       /messages
++//   Function calling: campo `tools[]` (input_schema) + blocos `tool_use` /
++//                      `tool_result` no `content` das mensagens.
++//   Fonte: https://docs.claude.com/en/api/messages
++//
++// SEGURANÇA (decisão de chave): a API key NÃO vai no bundle. O front chama o
++// PROXY server-side (llmFetch) que injeta a key como header x-api-key e
++// encaminha ao endpoint oficial. Ver src/lib/llm/proxy.ts e
++// src/Fifa2026.V2.McpServer/Llm/LlmProxyEndpoints.cs (rota /llm/claude/*).
++// =============================================================================
++
++import type { McpToolDefinition } from '@/lib/mcpTools';
++import { llmFetch } from '@/lib/llm/proxy';
++import type { ChatMessage, LlmProvider, LlmTurn, ToolCallRequest, ToolCallResult } from '@/lib/llm/types';
++
++// Sobrescrevível por VITE_CLAUDE_MODEL. Default: modelo Sonnet atual.
++const MODEL = import.meta.env.VITE_CLAUDE_MODEL ?? 'claude-sonnet-4-5';
++const MAX_TOKENS = 4096;
++
++type ClaudeContentBlock =
++  | { type: 'text'; text: string }
++  | { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> }
++  | { type: 'tool_result'; tool_use_id: string; content: string };
++
++interface ClaudeMessage {
++  role: 'user' | 'assistant';
++  content: string | ClaudeContentBlock[];
++}
++
++export class ClaudeProvider implements LlmProvider {
++  readonly name = 'claude' as const;
++
++  async chat(
++    messages: ChatMessage[],
++    tools: McpToolDefinition[],
++    toolResults: ToolCallResult[],
++  ): Promise<LlmTurn> {
++    // Anthropic trata `system` como campo separado, não como mensagem no array.
++    const systemMessages = messages.filter((m) => m.role === 'system');
++    const system = systemMessages.map((m) => m.content).join('\n\n') || undefined;
++
++    const claudeMessages: ClaudeMessage[] = messages
++      .filter((m) => m.role !== 'system')
++      .map((m) => ({
++        role: m.role === 'assistant' ? 'assistant' : 'user',
++        content: m.content,
++      }));
++
++    // Resultados de tools do turno anterior → mensagem user com blocos tool_result
++    // (protocolo Anthropic: tool_result sempre volta em uma mensagem role:user).
++    if (toolResults.length > 0) {
++      claudeMessages.push({
++        role: 'user',
++        content: toolResults.map((tr) => ({
++          type: 'tool_result',
++          tool_use_id: tr.id,
++          content: tr.content,
++        })),
++      });
++    }
++
++    const body = {
++      model: MODEL,
++      max_tokens: MAX_TOKENS,
++      ...(system ? { system } : {}),
++      messages: claudeMessages,
++      tools: tools.map((t) => ({
++        name: t.name,
++        description: t.description,
++        input_schema: t.parameters,
++      })),
++    };
++
++    const data = (await llmFetch('claude', '/messages', body)) as {
++      content?: ClaudeContentBlock[];
++    };
++
++    const blocks: ClaudeContentBlock[] = data?.content ?? [];
++    const text = blocks
++      .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
++      .map((b) => b.text)
++      .join('');
++
++    const toolCalls: ToolCallRequest[] = blocks
++      .filter((b): b is { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> } => b.type === 'tool_use')
++      .map((b) => ({
++        id: b.id,
++        name: b.name,
++        arguments: b.input ?? {},
++      }));
++
++    return { text, toolCalls };
++  }
++}
+diff --git a/Lovable/World Cup Tickets Hub/src/lib/llm/index.ts b/Lovable/World Cup Tickets Hub/src/lib/llm/index.ts
+index e2fd1d5..e80315a 100644
+--- a/Lovable/World Cup Tickets Hub/src/lib/llm/index.ts	
++++ b/Lovable/World Cup Tickets Hub/src/lib/llm/index.ts	
+@@ -1,17 +1,19 @@
+ // =============================================================================
+ // Story 2.5 / F5 — Factory de provider LLM com SWITCH POR ENV VAR (AC-10).
+ //
+-// Trocar VITE_LLM_PROVIDER=gemini|groq|mistral muda o provider SEM mudar código no
+-// componente (portabilidade — demo bônus). Default: gemini (ADE-002 Inv 3).
++// Trocar VITE_LLM_PROVIDER=gemini|groq|mistral|claude muda o provider SEM mudar
++// código no componente (portabilidade — demo bônus). Default: gemini (ADE-002 Inv 3).
+ //
+ // Modelos por env (com defaults documentados):
+ //   gemini  → gemini-2.0-flash (fixo, AC-8)
+ //   groq    → VITE_GROQ_MODEL    (default: llama-3.3-70b-versatile)
+ //   mistral → VITE_MISTRAL_MODEL (default: mistral-large-latest)
++//   claude  → VITE_CLAUDE_MODEL  (default: claude-sonnet-4-5)
+ // Os modelos default são pinados por NOME aqui; o @dev confirma disponibilidade na
+ // doc oficial de cada provider (AC-15). Endpoints oficiais ficam no proxy server-side.
+ // =============================================================================
+ 
++import { ClaudeProvider } from '@/lib/llm/claude';
+ import { GeminiProvider } from '@/lib/llm/gemini';
+ import { OpenAiCompatProvider } from '@/lib/llm/openaiCompat';
+ import type { LlmProvider, LlmProviderName } from '@/lib/llm/types';
+@@ -22,7 +24,7 @@ const DEFAULT_MISTRAL_MODEL = 'mistral-large-latest';
+ /** Lê o provider atual da env (AC-10). Default gemini. */
+ export function getConfiguredProvider(): LlmProviderName {
+   const raw = (import.meta.env.VITE_LLM_PROVIDER ?? 'gemini').toLowerCase();
+-  if (raw === 'groq' || raw === 'mistral' || raw === 'gemini') {
++  if (raw === 'groq' || raw === 'mistral' || raw === 'claude' || raw === 'gemini') {
+     return raw;
+   }
+   return 'gemini';
+@@ -41,6 +43,8 @@ export function createLlmProvider(name: LlmProviderName = getConfiguredProvider(
+         'mistral',
+         import.meta.env.VITE_MISTRAL_MODEL ?? DEFAULT_MISTRAL_MODEL,
+       );
++    case 'claude':
++      return new ClaudeProvider();
+     case 'gemini':
+     default:
+       return new GeminiProvider();
+diff --git a/Lovable/World Cup Tickets Hub/src/lib/llm/types.ts b/Lovable/World Cup Tickets Hub/src/lib/llm/types.ts
+index d4f872d..a746c13 100644
+--- a/Lovable/World Cup Tickets Hub/src/lib/llm/types.ts	
++++ b/Lovable/World Cup Tickets Hub/src/lib/llm/types.ts	
+@@ -8,7 +8,7 @@
+ 
+ import type { McpToolDefinition } from '@/lib/mcpTools';
+ 
+-export type LlmProviderName = 'gemini' | 'groq' | 'mistral';
++export type LlmProviderName = 'gemini' | 'groq' | 'mistral' | 'claude';
+ 
+ export interface ChatMessage {
+   role: 'user' | 'assistant' | 'system';
+diff --git a/src/Fifa2026.V2.McpServer.Tests/LlmProxyEndpointsTests.cs b/src/Fifa2026.V2.McpServer.Tests/LlmProxyEndpointsTests.cs
+index e07965a..4f08ab7 100644
+--- a/src/Fifa2026.V2.McpServer.Tests/LlmProxyEndpointsTests.cs
++++ b/src/Fifa2026.V2.McpServer.Tests/LlmProxyEndpointsTests.cs
+@@ -32,6 +32,7 @@ public sealed class LlmProxyEndpointsTests : IClassFixture<WebApplicationFactory
+     [InlineData("gemini", "models/gemini-2.0-flash:generateContent")]
+     [InlineData("groq", "chat/completions")]
+     [InlineData("mistral", "chat/completions")]
++    [InlineData("claude", "messages")]
+     public async Task Known_provider_without_key_returns_503(string provider, string path)
+     {
+         // appsettings.json do repo tem as keys vazias (placeholders) — fail-safe.
+diff --git a/src/Fifa2026.V2.McpServer/Llm/LlmProxyEndpoints.cs b/src/Fifa2026.V2.McpServer/Llm/LlmProxyEndpoints.cs
+index 2d28c74..d784ba0 100644
+--- a/src/Fifa2026.V2.McpServer/Llm/LlmProxyEndpoints.cs
++++ b/src/Fifa2026.V2.McpServer/Llm/LlmProxyEndpoints.cs
+@@ -13,9 +13,10 @@ namespace Fifa2026.V2.McpServer.Llm;
+ ///   POST /llm/gemini/{*path}   → https://generativelanguage.googleapis.com/v1beta/{path}?key=KEY
+ ///   POST /llm/groq/{*path}     → https://api.groq.com/openai/v1/{path}  (Bearer KEY)
+ ///   POST /llm/mistral/{*path}  → https://api.mistral.ai/v1/{path}       (Bearer KEY)
++///   POST /llm/claude/{*path}   → https://api.anthropic.com/v1/{path}    (header x-api-key)
+ ///
+ /// A key de cada provider vem de App Settings (NUNCA hardcoded):
+-///   GEMINI_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY.
++///   GEMINI_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY, ANTHROPIC_API_KEY.
+ /// Ausência da key → 503 (proxy desabilitado para aquele provider), nunca vaza nada.
+ /// </summary>
+ public static class LlmProxyEndpoints
+@@ -23,6 +24,7 @@ public static class LlmProxyEndpoints
+     private const string GeminiBase = "https://generativelanguage.googleapis.com/v1beta";
+     private const string GroqBase = "https://api.groq.com/openai/v1";
+     private const string MistralBase = "https://api.mistral.ai/v1";
++    private const string ClaudeBase = "https://api.anthropic.com/v1";
+ 
+     public static void MapLlmProxy(this WebApplication app)
+     {
+@@ -43,6 +45,7 @@ public static class LlmProxyEndpoints
+             "gemini" => (GeminiBase, "GEMINI_API_KEY", "query"),
+             "groq" => (GroqBase, "GROQ_API_KEY", "bearer"),
+             "mistral" => (MistralBase, "MISTRAL_API_KEY", "bearer"),
++            "claude" => (ClaudeBase, "ANTHROPIC_API_KEY", "anthropic"),
+             _ => (string.Empty, string.Empty, string.Empty),
+         };
+ 
+@@ -79,6 +82,13 @@ public static class LlmProxyEndpoints
+             // Groq/Mistral (OpenAI-compat): Authorization: Bearer <KEY>.
+             upstream.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+         }
++        else if (scheme == "anthropic")
++        {
++            // Claude (Anthropic Messages API): header x-api-key + anthropic-version.
++            // Doc oficial: https://docs.claude.com/en/api/messages
++            upstream.Headers.Add("x-api-key", apiKey);
++            upstream.Headers.Add("anthropic-version", "2023-06-01");
++        }
+ 
+         var client = httpClientFactory.CreateClient("llm");
+         using var providerResponse = await client.SendAsync(upstream, cancellationToken);
+diff --git a/src/Fifa2026.V2.McpServer/Program.cs b/src/Fifa2026.V2.McpServer/Program.cs
+index ccc4d18..9fa6cbf 100644
+--- a/src/Fifa2026.V2.McpServer/Program.cs
++++ b/src/Fifa2026.V2.McpServer/Program.cs
+@@ -26,7 +26,7 @@ using Fifa2026.V2.McpServer.Tools;
+ // ADE-005). O McpServer LÊ o header só para logging/personalização e NUNCA
+ // revalida o JWT (gateway é o guardião único — AC-9 / Task 3.8).
+ //
+-// A integração LLM (Gemini/Groq/Mistral) NÃO vive aqui — é do frontend React
++// A integração LLM (Gemini/Groq/Mistral/Claude) NÃO vive aqui — é do frontend React
+ // (ADE-002 Inv 3). Este servidor só expõe as tools.
+ // =============================================================================
+ 
+diff --git a/src/Fifa2026.V2.McpServer/appsettings.json b/src/Fifa2026.V2.McpServer/appsettings.json
+index e21b7b1..edb8b0f 100644
+--- a/src/Fifa2026.V2.McpServer/appsettings.json
++++ b/src/Fifa2026.V2.McpServer/appsettings.json
+@@ -10,8 +10,9 @@
+   "// SqlConnectionString": "Connection string do SQL Server (mesma DB do projeto). NUNCA hardcoded no repo — definida como App Setting do Container App pelo @devops. Placeholder vazio abaixo; sobrescrever por env SqlConnectionString.",
+   "SqlConnectionString": "",
+ 
+-  "// LLM proxy keys": "Story 2.5 / F5 — chaves das LLMs injetadas SERVER-SIDE pelo proxy (LlmProxyEndpoints). NUNCA no bundle do browser, NUNCA hardcoded no repo. Definidas como App Settings do Container App pelo @devops. Ausência → o provider retorna 503 (proxy desabilitado). Sobrescrever por env GEMINI_API_KEY / GROQ_API_KEY / MISTRAL_API_KEY.",
++  "// LLM proxy keys": "Story 2.5 / F5 — chaves das LLMs injetadas SERVER-SIDE pelo proxy (LlmProxyEndpoints). NUNCA no bundle do browser, NUNCA hardcoded no repo. Definidas como App Settings do Container App pelo @devops. Ausência → o provider retorna 503 (proxy desabilitado). Sobrescrever por env GEMINI_API_KEY / GROQ_API_KEY / MISTRAL_API_KEY / ANTHROPIC_API_KEY.",
+   "GEMINI_API_KEY": "",
+   "GROQ_API_KEY": "",
+-  "MISTRAL_API_KEY": ""
++  "MISTRAL_API_KEY": "",
++  "ANTHROPIC_API_KEY": ""
+ }
