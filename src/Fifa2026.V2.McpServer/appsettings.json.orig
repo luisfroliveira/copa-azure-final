@@ -13,6 +13,5 @@
   "// LLM proxy keys": "Story 2.5 / F5 — chaves das LLMs injetadas SERVER-SIDE pelo proxy (LlmProxyEndpoints). NUNCA no bundle do browser, NUNCA hardcoded no repo. Definidas como App Settings do Container App pelo @devops. Ausência → o provider retorna 503 (proxy desabilitado). Sobrescrever por env GEMINI_API_KEY / GROQ_API_KEY / MISTRAL_API_KEY.",
   "GEMINI_API_KEY": "",
   "GROQ_API_KEY": "",
-  "MISTRAL_API_KEY": "",
-  "ANTHROPIC_API_KEY": ""
+  "MISTRAL_API_KEY": ""
 }

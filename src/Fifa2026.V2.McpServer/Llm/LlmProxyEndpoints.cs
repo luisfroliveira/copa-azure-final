@@ -13,9 +13,10 @@ namespace Fifa2026.V2.McpServer.Llm;
 ///   POST /llm/gemini/{*path}   → https://generativelanguage.googleapis.com/v1beta/{path}?key=KEY
 ///   POST /llm/groq/{*path}     → https://api.groq.com/openai/v1/{path}  (Bearer KEY)
 ///   POST /llm/mistral/{*path}  → https://api.mistral.ai/v1/{path}       (Bearer KEY)
+///   POST /llm/claude/{*path}   → https://api.anthropic.com/v1/{path}    (header x-api-key)
 ///
 /// A key de cada provider vem de App Settings (NUNCA hardcoded):
-///   GEMINI_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY.
+///   GEMINI_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY, ANTHROPIC_API_KEY.
 /// Ausência da key → 503 (proxy desabilitado para aquele provider), nunca vaza nada.
 /// </summary>
 public static class LlmProxyEndpoints
@@ -23,6 +24,7 @@ public static class LlmProxyEndpoints
     private const string GeminiBase = "https://generativelanguage.googleapis.com/v1beta";
     private const string GroqBase = "https://api.groq.com/openai/v1";
     private const string MistralBase = "https://api.mistral.ai/v1";
+    private const string ClaudeBase = "https://api.anthropic.com/v1";
 
     public static void MapLlmProxy(this WebApplication app)
     {
@@ -43,6 +45,7 @@ public static class LlmProxyEndpoints
             "gemini" => (GeminiBase, "GEMINI_API_KEY", "query"),
             "groq" => (GroqBase, "GROQ_API_KEY", "bearer"),
             "mistral" => (MistralBase, "MISTRAL_API_KEY", "bearer"),
+            "claude" => (ClaudeBase, "ANTHROPIC_API_KEY", "anthropic"),
             _ => (string.Empty, string.Empty, string.Empty),
         };
 
@@ -78,6 +81,13 @@ public static class LlmProxyEndpoints
         {
             // Groq/Mistral (OpenAI-compat): Authorization: Bearer <KEY>.
             upstream.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        }
+        else if (scheme == "anthropic")
+        {
+            // Claude (Anthropic Messages API): header x-api-key + anthropic-version.
+            // Doc oficial: https://docs.claude.com/en/api/messages
+            upstream.Headers.Add("x-api-key", apiKey);
+            upstream.Headers.Add("anthropic-version", "2023-06-01");
         }
 
         var client = httpClientFactory.CreateClient("llm");

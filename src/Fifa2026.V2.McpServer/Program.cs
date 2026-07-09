@@ -26,7 +26,7 @@ using Fifa2026.V2.McpServer.Tools;
 // ADE-005). O McpServer LÊ o header só para logging/personalização e NUNCA
 // revalida o JWT (gateway é o guardião único — AC-9 / Task 3.8).
 //
-// A integração LLM (Gemini/Groq/Mistral) NÃO vive aqui — é do frontend React
+// A integração LLM (Gemini/Groq/Mistral/Claude) NÃO vive aqui — é do frontend React
 // (ADE-002 Inv 3). Este servidor só expõe as tools.
 // =============================================================================
 
