@@ -1,0 +1,169 @@
+diff --git a/Lovable/World Cup Tickets Hub/src/lib/llm/index.ts b/Lovable/World Cup Tickets Hub/src/lib/llm/index.ts
+index e80315a..58973c6 100644
+--- a/Lovable/World Cup Tickets Hub/src/lib/llm/index.ts	
++++ b/Lovable/World Cup Tickets Hub/src/lib/llm/index.ts	
+@@ -9,6 +9,9 @@
+ //   groq    → VITE_GROQ_MODEL    (default: llama-3.3-70b-versatile)
+ //   mistral → VITE_MISTRAL_MODEL (default: mistral-large-latest)
+ //   claude  → VITE_CLAUDE_MODEL  (default: claude-sonnet-4-5)
++//   azureopenai → VITE_AZURE_OPENAI_DEPLOYMENT (default: gpt-4o)
++//                 + VITE_AZURE_OPENAI_API_VERSION (default: 2024-10-21)
++//                 endpoint/key ficam server-side (AZURE_OPENAI_ENDPOINT/_API_KEY)
+ // Os modelos default são pinados por NOME aqui; o @dev confirma disponibilidade na
+ // doc oficial de cada provider (AC-15). Endpoints oficiais ficam no proxy server-side.
+ // =============================================================================
+@@ -20,11 +23,21 @@ import type { LlmProvider, LlmProviderName } from '@/lib/llm/types';
+ 
+ const DEFAULT_GROQ_MODEL = 'llama-3.3-70b-versatile';
+ const DEFAULT_MISTRAL_MODEL = 'mistral-large-latest';
++// Azure OpenAI: nome do DEPLOYMENT (não do modelo) e api-version.
++// Sobrescrevíveis por env. O deployment é criado no recurso Azure OpenAI.
++const DEFAULT_AZURE_DEPLOYMENT = 'gpt-4o';
++const DEFAULT_AZURE_API_VERSION = '2024-10-21';
+ 
+ /** Lê o provider atual da env (AC-10). Default gemini. */
+ export function getConfiguredProvider(): LlmProviderName {
+   const raw = (import.meta.env.VITE_LLM_PROVIDER ?? 'gemini').toLowerCase();
+-  if (raw === 'groq' || raw === 'mistral' || raw === 'claude' || raw === 'gemini') {
++  if (
++    raw === 'groq' ||
++    raw === 'mistral' ||
++    raw === 'claude' ||
++    raw === 'azureopenai' ||
++    raw === 'gemini'
++  ) {
+     return raw;
+   }
+   return 'gemini';
+@@ -45,6 +58,17 @@ export function createLlmProvider(name: LlmProviderName = getConfiguredProvider(
+       );
+     case 'claude':
+       return new ClaudeProvider();
++    case 'azureopenai': {
++      // Azure OpenAI é OpenAI-compatível no corpo → reusa OpenAiCompatProvider,
++      // mas com URL baseada em deployment + api-version. O endpoint (base) e a
++      // key ficam no proxy server-side (AZURE_OPENAI_ENDPOINT / _API_KEY).
++      const deployment = import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT ?? DEFAULT_AZURE_DEPLOYMENT;
++      const apiVersion = import.meta.env.VITE_AZURE_OPENAI_API_VERSION ?? DEFAULT_AZURE_API_VERSION;
++      const path = `/deployments/${deployment}/chat/completions?api-version=${apiVersion}`;
++      // O "model" no corpo é ignorado pelo Azure (o deployment define o modelo),
++      // mas mandamos o deployment por consistência.
++      return new OpenAiCompatProvider('azureopenai', deployment, path);
++    }
+     case 'gemini':
+     default:
+       return new GeminiProvider();
+diff --git a/Lovable/World Cup Tickets Hub/src/lib/llm/openaiCompat.ts b/Lovable/World Cup Tickets Hub/src/lib/llm/openaiCompat.ts
+index 01e1f9b..5f24848 100644
+--- a/Lovable/World Cup Tickets Hub/src/lib/llm/openaiCompat.ts	
++++ b/Lovable/World Cup Tickets Hub/src/lib/llm/openaiCompat.ts	
+@@ -41,6 +41,10 @@ export class OpenAiCompatProvider implements LlmProvider {
+   constructor(
+     readonly name: LlmProviderName,
+     private readonly model: string,
++    // Path do endpoint no proxy. Default OpenAI-compat (Groq/Mistral):
++    // /chat/completions. Azure OpenAI usa o path baseado em deployment +
++    // api-version (montado pela factory). O proxy server-side injeta a key.
++    private readonly providerPath: string = '/chat/completions',
+   ) {}
+ 
+   async chat(
+@@ -68,7 +72,7 @@ export class OpenAiCompatProvider implements LlmProvider {
+       tool_choice: 'auto',
+     };
+ 
+-    const data = (await llmFetch(this.name, '/chat/completions', body)) as {
++    const data = (await llmFetch(this.name, this.providerPath, body)) as {
+       choices?: { message?: { content?: string | null; tool_calls?: OpenAiToolCall[] } }[];
+     };
+ 
+diff --git a/Lovable/World Cup Tickets Hub/src/lib/llm/types.ts b/Lovable/World Cup Tickets Hub/src/lib/llm/types.ts
+index a746c13..c2f10ae 100644
+--- a/Lovable/World Cup Tickets Hub/src/lib/llm/types.ts	
++++ b/Lovable/World Cup Tickets Hub/src/lib/llm/types.ts	
+@@ -8,7 +8,7 @@
+ 
+ import type { McpToolDefinition } from '@/lib/mcpTools';
+ 
+-export type LlmProviderName = 'gemini' | 'groq' | 'mistral' | 'claude';
++export type LlmProviderName = 'gemini' | 'groq' | 'mistral' | 'claude' | 'azureopenai';
+ 
+ export interface ChatMessage {
+   role: 'user' | 'assistant' | 'system';
+diff --git a/src/Fifa2026.V2.McpServer.Tests/LlmProxyEndpointsTests.cs b/src/Fifa2026.V2.McpServer.Tests/LlmProxyEndpointsTests.cs
+index 4f08ab7..b8e07f2 100644
+--- a/src/Fifa2026.V2.McpServer.Tests/LlmProxyEndpointsTests.cs
++++ b/src/Fifa2026.V2.McpServer.Tests/LlmProxyEndpointsTests.cs
+@@ -33,6 +33,8 @@ public sealed class LlmProxyEndpointsTests : IClassFixture<WebApplicationFactory
+     [InlineData("groq", "chat/completions")]
+     [InlineData("mistral", "chat/completions")]
+     [InlineData("claude", "messages")]
++    // azureopenai: sem AZURE_OPENAI_ENDPOINT/_API_KEY no repo → 503 (fail-safe).
++    [InlineData("azureopenai", "deployments/gpt-4o/chat/completions")]
+     public async Task Known_provider_without_key_returns_503(string provider, string path)
+     {
+         // appsettings.json do repo tem as keys vazias (placeholders) — fail-safe.
+diff --git a/src/Fifa2026.V2.McpServer/Llm/LlmProxyEndpoints.cs b/src/Fifa2026.V2.McpServer/Llm/LlmProxyEndpoints.cs
+index d784ba0..0364a3b 100644
+--- a/src/Fifa2026.V2.McpServer/Llm/LlmProxyEndpoints.cs
++++ b/src/Fifa2026.V2.McpServer/Llm/LlmProxyEndpoints.cs
+@@ -46,9 +46,25 @@ public static class LlmProxyEndpoints
+             "groq" => (GroqBase, "GROQ_API_KEY", "bearer"),
+             "mistral" => (MistralBase, "MISTRAL_API_KEY", "bearer"),
+             "claude" => (ClaudeBase, "ANTHROPIC_API_KEY", "anthropic"),
++            // Azure OpenAI: o endpoint é ESPECÍFICO do recurso provisionado
++            // (https://<nome>.openai.azure.com), então vem de App Setting
++            // AZURE_OPENAI_ENDPOINT (não hardcoded). Auth por header api-key.
++            "azureopenai" => (
++                (configuration["AZURE_OPENAI_ENDPOINT"] ?? string.Empty).TrimEnd('/') + "/openai",
++                "AZURE_OPENAI_API_KEY",
++                "azure"),
+             _ => (string.Empty, string.Empty, string.Empty),
+         };
+ 
++        // Azure OpenAI sem endpoint configurado → mesmo fail-safe das keys (503).
++        if (scheme == "azure" && baseUrl == "/openai")
++        {
++            logger.LogWarning("Proxy LLM: AZURE_OPENAI_ENDPOINT não configurado — provider {Provider} indisponível.", provider);
++            return Results.Json(
++                new { error = "AZURE_OPENAI_ENDPOINT não configurado no servidor. Configure como App Setting." },
++                statusCode: StatusCodes.Status503ServiceUnavailable);
++        }
++
+         if (string.IsNullOrEmpty(baseUrl))
+         {
+             return Results.BadRequest(new { error = $"Provider LLM desconhecido: {provider}." });
+@@ -89,6 +105,13 @@ public static class LlmProxyEndpoints
+             upstream.Headers.Add("x-api-key", apiKey);
+             upstream.Headers.Add("anthropic-version", "2023-06-01");
+         }
++        else if (scheme == "azure")
++        {
++            // Azure OpenAI: autenticação por header api-key (NÃO Bearer).
++            // A api-version vai na query string do path que o front monta.
++            // Doc oficial: https://learn.microsoft.com/azure/ai-services/openai/reference
++            upstream.Headers.Add("api-key", apiKey);
++        }
+ 
+         var client = httpClientFactory.CreateClient("llm");
+         using var providerResponse = await client.SendAsync(upstream, cancellationToken);
+diff --git a/src/Fifa2026.V2.McpServer/appsettings.json b/src/Fifa2026.V2.McpServer/appsettings.json
+index caefe5f..88a4d24 100644
+--- a/src/Fifa2026.V2.McpServer/appsettings.json
++++ b/src/Fifa2026.V2.McpServer/appsettings.json
+@@ -10,9 +10,13 @@
+   "// SqlConnectionString": "Connection string do SQL Server (mesma DB do projeto). NUNCA hardcoded no repo — definida como App Setting do Container App pelo @devops. Placeholder vazio abaixo; sobrescrever por env SqlConnectionString.",
+   "SqlConnectionString": "",
+ 
+-  "// LLM proxy keys": "Story 2.5 / F5 — chaves das LLMs injetadas SERVER-SIDE pelo proxy (LlmProxyEndpoints). NUNCA no bundle do browser, NUNCA hardcoded no repo. Definidas como App Settings do Container App pelo @devops. Ausência → o provider retorna 503 (proxy desabilitado). Sobrescrever por env GEMINI_API_KEY / GROQ_API_KEY / MISTRAL_API_KEY.",
++  "// LLM proxy keys": "Story 2.5 / F5 — chaves das LLMs injetadas SERVER-SIDE pelo proxy (LlmProxyEndpoints). NUNCA no bundle do browser, NUNCA hardcoded no repo. Definidas como App Settings do Container App pelo @devops. Ausência → o provider retorna 503 (proxy desabilitado). Sobrescrever por env GEMINI_API_KEY / GROQ_API_KEY / MISTRAL_API_KEY / ANTHROPIC_API_KEY.",
+   "GEMINI_API_KEY": "",
+   "GROQ_API_KEY": "",
+   "MISTRAL_API_KEY": "",
+-  "ANTHROPIC_API_KEY": ""
++  "ANTHROPIC_API_KEY": "",
++
++  "// Azure OpenAI": "Provider azureopenai — LLM provisionado NA Azure (contorna geo-fence de região: a chamada vai ao endpoint *.openai.azure.com, não a APIs externas). ENDPOINT é específico do recurso; KEY é secret. Ambos como App Settings do Container App. Sem eles → 503.",
++  "AZURE_OPENAI_ENDPOINT": "",
++  "AZURE_OPENAI_API_KEY": ""
+ }
