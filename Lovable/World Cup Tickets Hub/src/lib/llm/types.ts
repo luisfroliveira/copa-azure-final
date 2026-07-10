@@ -8,7 +8,7 @@
 
 import type { McpToolDefinition } from '@/lib/mcpTools';
 
-export type LlmProviderName = 'gemini' | 'groq' | 'mistral' | 'claude';
+export type LlmProviderName = 'gemini' | 'groq' | 'mistral';
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';

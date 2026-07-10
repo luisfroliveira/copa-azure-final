@@ -32,7 +32,6 @@ public sealed class LlmProxyEndpointsTests : IClassFixture<WebApplicationFactory
     [InlineData("gemini", "models/gemini-2.0-flash:generateContent")]
     [InlineData("groq", "chat/completions")]
     [InlineData("mistral", "chat/completions")]
-    [InlineData("claude", "messages")]
     public async Task Known_provider_without_key_returns_503(string provider, string path)
     {
         // appsettings.json do repo tem as keys vazias (placeholders) — fail-safe.
